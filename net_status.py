@@ -2,6 +2,7 @@
 
 import time
 import os
+import re
 
 
 def get_connections():
@@ -21,34 +22,43 @@ class Py3status:
     format = "{vpn:V:V}{eth:E:E}{wifi:W:W}"
     timeout = 5
 
-    _format = ""
-    _formatting_strings =  {}
 
-    for x in format.split("}{"):
-        x = x.strip("{}")
-        y = x.split(":")
-        _formatting_strings[y[0]] = {}
-        if len(y) > 2:
-            _formatting_strings[y[0]]["on"] = y[1]
-            _formatting_strings[y[0]]["off"] = y[2]
-        elif len(y) == 2:
-            _formatting_strings[y[0]]["on"] = y[1]
-            _formatting_strings[y[0]]["off"] = y[1]
-        else:
-            _formatting_strings[y[0]]["on"] = y[0][0].upper()
-            _formatting_strings[y[0]]["off"] = y[0][0].upper()
-        _format += "{%s}" % y[0]
 
     def __init__(self):
         self.first_run = True
 
-    def kill(*args, **kwargs):
+    def _on_first_run(self):
+        _formatting_regex = "{(vpn|eth|wifi)\:([^\:}]*)\:([^\:}]*)}"
+
+        self._format = ""
+        self._formatting_strings =  {}
+
+        for group in re.findall(_formatting_regex, self.format):
+            # print(group)
+            self._formatting_strings[group[0]] = {}
+            if len(group) > 2:
+                self._formatting_strings[group[0]]["on"] = group[1]
+                self._formatting_strings[group[0]]["off"] = group[2]
+            elif len(group) == 2:
+                self._formatting_strings[group[0]]["on"] = group[1]
+                self._formatting_strings[group[0]]["off"] = group[1]
+            else:
+                self._formatting_strings[group[0]]["on"] = group[0][0].upper()
+                self._formatting_strings[group[0]]["off"] = group[0][0].upper()
+
+        self._format = re.sub(_formatting_regex, "{\\1}", self.format)
+        self.first_run = False
+
+    def kill(self, *args, **kwargs):
         pass
 
-    def on_click(*args, **kwargs):
+    def on_click(self, *args, **kwargs):
         pass
 
     def get_status(self, i3s_output_list, i3s_config):
+        if self.first_run:
+            self._on_first_run()
+
         connections = get_connections()
 
         status = {"vpn": 0, "eth": 0, "wifi": 0}
@@ -71,7 +81,8 @@ class Py3status:
                 (i3s_config["color_bad"], self._formatting_strings[dev]["off"])
 
         if self.color:
-            full_text = "<span foreground='%s'>%s</span>" % (self.color, self.format.format(**fields))
+            full_text = "<span foreground='%s'>%s</span>" % \
+            (self.color, self._format.format(**fields))
         else:
             full_text = self._format.format(**fields)
         response = {
