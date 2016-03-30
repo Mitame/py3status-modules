@@ -17,7 +17,7 @@ def get_connections():
 
 
 class Py3status:
-    order = "VEW"
+    format = "{vpn}{eth}{wifi}"
     vpn_text = "V"
     eth_text = "E"
     wifi_text = "W"
@@ -46,31 +46,25 @@ class Py3status:
 
         text = []
 
-        status = {"V": 0, "E": 0, "W": 0}
+        status = {"vpn": 0, "eth": 0, "wifi": 0}
         for name, device, dtype in connections:
             if device == "--":
                 continue
             if dtype == "802-11-wireless":
-                status["W"] = 1
+                status["wifi"] = 1
             elif dtype == "802-3-ethernet":
-                status["E"] = 1
+                status["eth"] = 1
             elif dtype == "vpn":
-                status["V"] = 1
+                status["vpn"] = 1
 
-        full_text = ""
-        for device in self.order:
-            if device == "V": name = self.vpn_text
-            elif device == "E": name = self.eth_text
-            elif device == "W": name = self.wifi_text
-            else: raise ValueError(device + " is not a valid device.")
-
-            full_text += "<span foreground='%s'>%s</span>" % \
-            (self.color_good if status[device] else self.color_bad, name)
-        # full_text = self.vpn_text
-
+        fields = {
+            "vpn": "<span foreground='%s'>%s</span>" % ((self.color_good if status["vpn"] else self.color_bad, self.vpn_text)),
+            "eth": "<span foreground='%s'>%s</span>" % ((self.color_good if status["eth"] else self.color_bad, self.eth_text)),
+            "wifi": "<span foreground='%s'>%s</span>" % ((self.color_good if status["wifi"] else self.color_bad, self.wifi_text)),
+        }
         response = {
             "markup": "pango",
-            "full_text": full_text,
+            "full_text": "<span foreground='%s'>%s</span>" % (self.color_bad, self.format.format(**fields)),
             "cached_until": time.time() + 10
         }
         return response
