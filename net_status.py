@@ -10,13 +10,19 @@ def get_connections():
     line = raw_data.readline()
     while line != "":
         line_data = line.strip("\n").split(":")
-        data.append(line_data)
+        if len(line_data) == 3:
+            data.append(line_data)
         line = raw_data.readline()
     return data
 
 
-
 class Py3status:
+    order = "VEW"
+    vpn_text = "V"
+    eth_text = "E"
+    wifi_text = "W"
+    timeout = 5
+
     def __init__(self):
         self.first_run = True
 
@@ -33,32 +39,35 @@ class Py3status:
             self.good = True
             self.first_run = False
 
-
-
         self.good = not self.good
         color = self.color_good if self.good else self.color_bad
 
         connections = get_connections()
 
-        status = {"wifi": 0, "vpn": 0, "eth": 0}
+        text = []
+
+        status = {"V": 0, "E": 0, "W": 0}
         for name, device, dtype in connections:
             if device == "--":
                 continue
             if dtype == "802-11-wireless":
-                status["wifi"] = 1
+                status["W"] = 1
             elif dtype == "802-3-ethernet":
-                status["eth"] = 1
+                status["E"] = 1
             elif dtype == "vpn":
-                status["vpn"] = 1
+                status["V"] = 1
 
-        full_text = ("<span foreground='%s'>V</span>" +
-                    "<span foreground='%s'>E</span>" +
-                    "<span foreground='%s'>W</span>") % \
-                    (
-                        self.color_good if status["vpn"] else self.color_bad,
-                        self.color_good if status["eth"] else self.color_bad,
-                        self.color_good if status["wifi"] else self.color_bad,
-                    )
+        full_text = ""
+        for device in self.order:
+            if device == "V": name = self.vpn_text
+            elif device == "E": name = self.eth_text
+            elif device == "W": name = self.wifi_text
+            else: raise ValueError(device + " is not a valid device.")
+
+            full_text += "<span foreground='%s'>%s</span>" % \
+            (self.color_good if status[device] else self.color_bad, name)
+        # full_text = self.vpn_text
+
         response = {
             "markup": "pango",
             "full_text": full_text,
