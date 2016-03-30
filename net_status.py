@@ -17,11 +17,27 @@ def get_connections():
 
 
 class Py3status:
-    format = "{vpn}{eth}{wifi}"
-    vpn_text = "V"
-    eth_text = "E"
-    wifi_text = "W"
+    color = None
+    format = "{vpn:V:V}{eth:E:E}{wifi:W:W}"
     timeout = 5
+
+    _format = ""
+    _formatting_strings =  {}
+
+    for x in format.split("}{"):
+        x = x.strip("{}")
+        y = x.split(":")
+        _formatting_strings[y[0]] = {}
+        if len(y) > 2:
+            _formatting_strings[y[0]]["on"] = y[1]
+            _formatting_strings[y[0]]["off"] = y[2]
+        elif len(y) == 2:
+            _formatting_strings[y[0]]["on"] = y[1]
+            _formatting_strings[y[0]]["off"] = y[1]
+        else:
+            _formatting_strings[y[0]]["on"] = y[0][0].upper()
+            _formatting_strings[y[0]]["off"] = y[0][0].upper()
+        _format += "{%s}" % y[0]
 
     def __init__(self):
         self.first_run = True
@@ -33,18 +49,7 @@ class Py3status:
         pass
 
     def get_status(self, i3s_output_list, i3s_config):
-        if self.first_run:
-            self.color_good = i3s_config["color_good"]
-            self.color_bad = i3s_config["color_bad"]
-            self.good = True
-            self.first_run = False
-
-        self.good = not self.good
-        color = self.color_good if self.good else self.color_bad
-
         connections = get_connections()
-
-        text = []
 
         status = {"vpn": 0, "eth": 0, "wifi": 0}
         for name, device, dtype in connections:
@@ -56,15 +61,22 @@ class Py3status:
                 status["eth"] = 1
             elif dtype == "vpn":
                 status["vpn"] = 1
+        fields = {}
+        for dev in self._formatting_strings.keys():
+            if status[dev]:
+                fields[dev] = "<span foreground='%s'>%s</span>" % \
+                (i3s_config["color_good"], self._formatting_strings[dev]["on"])
+            else:
+                fields[dev] = "<span foreground='%s'>%s</span>" % \
+                (i3s_config["color_bad"], self._formatting_strings[dev]["off"])
 
-        fields = {
-            "vpn": "<span foreground='%s'>%s</span>" % ((self.color_good if status["vpn"] else self.color_bad, self.vpn_text)),
-            "eth": "<span foreground='%s'>%s</span>" % ((self.color_good if status["eth"] else self.color_bad, self.eth_text)),
-            "wifi": "<span foreground='%s'>%s</span>" % ((self.color_good if status["wifi"] else self.color_bad, self.wifi_text)),
-        }
+        if self.color:
+            full_text = "<span foreground='%s'>%s</span>" % (self.color, self.format.format(**fields))
+        else:
+            full_text = self._format.format(**fields)
         response = {
             "markup": "pango",
-            "full_text": "<span foreground='%s'>%s</span>" % (self.color_bad, self.format.format(**fields)),
+            "full_text": full_text,
             "cached_until": time.time() + 10
         }
         return response
